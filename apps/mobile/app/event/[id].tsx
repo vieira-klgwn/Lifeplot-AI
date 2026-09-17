@@ -44,17 +44,18 @@ export default function EventDetail() {
   const [edits, setEdits] = useState<Partial<Draft>>({});
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [removed, setRemoved] = useState(false);
 
   const draft: Draft = { ...draftFrom(event), ...edits };
   const patch = (key: keyof Draft) => (value: string) =>
     setEdits((current) => ({ ...current, [key]: value }));
 
   useEffect(() => {
-    if (event || !id) return;
+    if (event || !id || removed) return;
     apiRequest<{ event: ScheduleEvent }>(`/events/${id}`)
       .then((payload) => setFetched(payload.event))
       .catch(() => setError('That event is no longer available.'));
-  }, [event, id]);
+  }, [event, id, removed]);
 
   const save = async () => {
     if (!id) return;
@@ -85,6 +86,7 @@ export default function EventDetail() {
     setBusy(true);
     try {
       await apiRequest(`/events/${id}`, { method: 'DELETE', query: { scope } });
+      setRemoved(true);
       await refresh();
       router.back();
     } catch {
