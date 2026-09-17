@@ -12,7 +12,8 @@
     "lint": "npm --prefix apps/api run lint && npm --prefix apps/mobile run lint",
     "typecheck": "npm --prefix apps/api run typecheck && npm --prefix apps/mobile run typecheck",
     "db:up": "docker compose up -d",
-    "db:down": "docker compose down"
+    "db:down": "docker compose down",
+    "build:web": "npm --prefix apps/mobile run export:web"
   },
   "engines": {
     "node": ">=20"
