@@ -1,0 +1,20 @@
+{
+  "name": "uniflow",
+  "private": true,
+  "version": "0.1.0",
+  "description": "UniFlow - AI-powered schedule assistant for university students",
+  "scripts": {
+    "install:all": "npm --prefix apps/api install && npm --prefix apps/mobile install",
+    "api": "npm --prefix apps/api run dev",
+    "mobile": "npm --prefix apps/mobile run start",
+    "build": "npm --prefix apps/api run build",
+    "test": "npm --prefix apps/api run test",
+    "lint": "npm --prefix apps/api run lint && npm --prefix apps/mobile run lint",
+    "typecheck": "npm --prefix apps/api run typecheck && npm --prefix apps/mobile run typecheck",
+    "db:up": "docker compose up -d",
+    "db:down": "docker compose down"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
