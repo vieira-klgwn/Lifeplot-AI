@@ -25,6 +25,7 @@ export default function Calendar() {
     [anchor, mode, weekStartsOn],
   );
   const selectedEvents = eventsOn(selected);
+  const weekStart = days[0] ?? anchor;
 
   const shift = (direction: -1 | 1) =>
     setAnchor((current) => (mode === 'week' ? addWeeks(current, direction) : addMonths(current, direction)));
@@ -35,7 +36,9 @@ export default function Calendar() {
         contentContainerStyle={styles.container}
         refreshControl={<RefreshControl refreshing={loading} onRefresh={refresh} tintColor={colors.primary} />}
       >
-        <Heading>{format(anchor, mode === 'week' ? "'Week of' d MMM" : 'MMMM yyyy')}</Heading>
+        <Heading>
+          {mode === 'week' ? format(weekStart, "'Week of' d MMM") : format(anchor, 'MMMM yyyy')}
+        </Heading>
 
         <Segmented
           value={mode}
@@ -87,7 +90,10 @@ export default function Calendar() {
                 accessibilityRole="button"
                 accessibilityLabel={`${dayLabel(day)}, ${dayEvents.length} events`}
                 accessibilityState={{ selected: active }}
-                onPress={() => setSelected(day)}
+                onPress={() => {
+                  setSelected(day);
+                  setAnchor(day);
+                }}
                 style={[
                   styles.cell,
                   mode === 'week' ? styles.weekCell : styles.monthCell,
