@@ -6,9 +6,11 @@ import { addDays, format, isSameDay, parseISO } from 'date-fns';
 import { useTheme } from '../../src/theme';
 import { useAuth } from '../../src/state/auth';
 import { useSchedule } from '../../src/state/schedule';
-import { Banner, Body, Button, EmptyState, Heading } from '../../src/components/ui';
+import { Banner, Body, Button, Card, EmptyState, Heading } from '../../src/components/ui';
 import { EventCard } from '../../src/components/EventCard';
 import { dayLabel } from '../../src/lib/dates';
+import { apiRequest } from '../../src/lib/api';
+import type { Plan } from '../../src/types';
 
 export default function Today() {
   const { colors } = useTheme();
@@ -16,6 +18,38 @@ export default function Today() {
   const { eventsOn, tasks, loading, offline, refresh } = useSchedule();
   const router = useRouter();
   const [offset, setOffset] = useState(0);
+  const [plan, setPlan] = useState<Plan | null>(null);
+  const [planning, setPlanning] = useState(false);
+  const [planError, setPlanError] = useState<string | null>(null);
+
+  const preview = async () => {
+    setPlanning(true);
+    setPlanError(null);
+    try {
+      const response = await apiRequest<{ plan: Plan }>('/plans/preview', { method: 'POST', body: {} });
+      setPlan(response.plan);
+    } catch {
+      setPlanError('Could not preview your plan. Try again when connected.');
+    } finally {
+      setPlanning(false);
+    }
+  };
+
+  const approve = async () => {
+    if (!plan) return;
+    setPlanning(true);
+    try {
+      await apiRequest('/plans/apply', { method: 'POST', body: { date: plan.date, revision: plan.revision } });
+      setPlan(null);
+      setPlanError(null);
+      await refresh();
+    } catch {
+      setPlanError('Your schedule may have changed. Preview it again before approving.');
+      setPlan(null);
+    } finally {
+      setPlanning(false);
+    }
+  };
 
   const date = useMemo(() => addDays(new Date(), offset), [offset]);
   const events = eventsOn(date);
@@ -55,11 +89,36 @@ export default function Today() {
         </View>
 
         {offline ? <Banner tone="warning" message="Offline — showing your saved schedule." /> : null}
+        {planError ? <Banner tone="warning" message={planError} /> : null}
+
+        <Card>
+          <Text style={{ color: colors.textMuted }}>GOOD TO SEE YOU{user?.name ? `, ${user.name.split(' ')[0]?.toUpperCase() ?? ''}` : ''}</Text>
+          <Body>{tasks.filter((task) => task.status === 'DONE').length} tasks completed · {tasks.filter((task) => task.status === 'PENDING').length} ready to plan</Body>
+          <Button label="Plan my week" onPress={() => void preview()} loading={planning} />
+        </Card>
+
+        {plan ? (
+          <Card>
+            <Text style={[styles.sectionTitle, { color: colors.text }]}>Your proposed week</Text>
+            <Body muted>Review these study blocks before adding them. Existing commitments stay where they are.</Body>
+            {plan.sessions.map((session) => (
+              <Text key={`${session.taskId ?? session.goalId}-${session.startTime}`} style={{ color: colors.text, marginVertical: 5 }}>
+                {session.title} · {format(new Date(session.startTime), 'EEE h:mm a')}–{format(new Date(session.endTime), 'h:mm a')}
+              </Text>
+            ))}
+            {plan.unscheduled.map((item) => (
+              <Text key={item.taskId ?? item.goalId} style={{ color: colors.warning }}>{item.title}: {item.reason}</Text>
+            ))}
+            {plan.sessions.length === 0 && plan.unscheduled.length === 0 ? <Body muted>Add a task with an estimated duration to create a plan.</Body> : null}
+            <Button label="Approve plan" onPress={() => void approve()} loading={planning} disabled={plan.sessions.length === 0} />
+            <Button label="Dismiss preview" variant="secondary" onPress={() => setPlan(null)} />
+          </Card>
+        ) : null}
 
         {events.length === 0 ? (
           <EmptyState
             title={offset === 0 ? 'Nothing scheduled today' : 'Nothing scheduled'}
-            hint="Ask UniFlow to add something, or create an event yourself."
+            hint="Ask LifePilot to add something, or create an event yourself."
           />
         ) : (
           <View style={styles.list}>
@@ -87,7 +146,8 @@ export default function Today() {
         ) : null}
 
         <View style={styles.actions}>
-          <Button label="Ask UniFlow" onPress={() => router.push('/(tabs)/chat')} />
+          <Button label="Ask LifePilot" onPress={() => router.push('/(tabs)/chat')} />
+          <Button label="Add task" variant="secondary" onPress={() => router.push('/(tabs)/tasks')} />
           <Button label="Add event" variant="secondary" onPress={() => router.push('/event/new')} />
         </View>
 

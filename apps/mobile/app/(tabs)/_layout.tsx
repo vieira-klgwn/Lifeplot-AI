@@ -36,12 +36,13 @@ export default function TabsLayout() {
         }}
       />
       <Tabs.Screen
-        name="tasks"
+        name="goals"
         options={{
-          title: 'Tasks',
-          tabBarIcon: ({ color, size }) => <Ionicons name="checkbox-outline" color={color} size={size} />,
+          title: 'Goals',
+          tabBarIcon: ({ color, size }) => <Ionicons name="flag-outline" color={color} size={size} />,
         }}
       />
+      <Tabs.Screen name="tasks" options={{ href: null }} />
       <Tabs.Screen
         name="settings"
         options={{

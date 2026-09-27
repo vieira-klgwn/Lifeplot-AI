@@ -2,8 +2,8 @@ import Constants from 'expo-constants';
 import { Platform } from 'react-native';
 import { secureStorage } from './storage';
 
-const ACCESS_KEY = 'uniflow.accessToken';
-const REFRESH_KEY = 'uniflow.refreshToken';
+const ACCESS_KEY = 'lifepilot.accessToken';
+const REFRESH_KEY = 'lifepilot.refreshToken';
 
 function defaultApiUrl(): string {
   const configured = Constants.expoConfig?.extra?.apiUrl;

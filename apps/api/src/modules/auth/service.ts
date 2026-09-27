@@ -9,7 +9,7 @@ import { verifySocialIdToken } from './social.js';
 
 const BCRYPT_ROUNDS = 12;
 /** Uniform work factor so timing does not reveal whether an account exists. */
-const DUMMY_HASH = bcrypt.hashSync('uniflow-dummy-password', BCRYPT_ROUNDS);
+const DUMMY_HASH = bcrypt.hashSync('lifepilot-dummy-password', BCRYPT_ROUNDS);
 
 export interface PublicUser {
   id: string;
@@ -19,6 +19,12 @@ export interface PublicUser {
   timezone: string;
   weekStartsOn: number;
   defaultReminderMinutes: number;
+  wakeTime: string;
+  bedTime: string;
+  workStartTime: string;
+  workEndTime: string;
+  breakMinutes: number;
+  protectEvenings: boolean;
   categoryReminderMinutes: Record<string, number>;
   notificationsEnabled: boolean;
   analyticsEnabled: boolean;
@@ -34,6 +40,12 @@ export function toPublicUser(user: User): PublicUser {
     timezone: user.timezone,
     weekStartsOn: user.weekStartsOn,
     defaultReminderMinutes: user.defaultReminderMinutes,
+    wakeTime: user.wakeTime,
+    bedTime: user.bedTime,
+    workStartTime: user.workStartTime,
+    workEndTime: user.workEndTime,
+    breakMinutes: user.breakMinutes,
+    protectEvenings: user.protectEvenings,
     categoryReminderMinutes: (user.categoryReminderMinutes ?? {}) as Record<string, number>,
     notificationsEnabled: user.notificationsEnabled,
     analyticsEnabled: user.analyticsEnabled,

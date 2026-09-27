@@ -24,7 +24,7 @@ export const secureStorage = {
 /** Last-known schedule data so the app still opens without a network. */
 export const cache = {
   async read<T>(key: string): Promise<T | null> {
-    const raw = await AsyncStorage.getItem(`uniflow.cache.${key}`);
+    const raw = await AsyncStorage.getItem(`lifepilot.cache.${key}`);
     if (!raw) return null;
     try {
       return JSON.parse(raw) as T;
@@ -33,10 +33,10 @@ export const cache = {
     }
   },
   async write(key: string, value: unknown): Promise<void> {
-    await AsyncStorage.setItem(`uniflow.cache.${key}`, JSON.stringify(value));
+    await AsyncStorage.setItem(`lifepilot.cache.${key}`, JSON.stringify(value));
   },
   async clear(): Promise<void> {
     const keys = await AsyncStorage.getAllKeys();
-    await AsyncStorage.multiRemove(keys.filter((key) => key.startsWith('uniflow.cache.')));
+    await AsyncStorage.multiRemove(keys.filter((key) => key.startsWith('lifepilot.cache.')));
   },
 };

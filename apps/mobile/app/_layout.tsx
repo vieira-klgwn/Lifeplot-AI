@@ -5,11 +5,12 @@ import { ActivityIndicator, View } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { ThemeProvider, useTheme } from '../src/theme';
 import { AuthProvider, useAuth } from '../src/state/auth';
-import { ScheduleProvider } from '../src/state/schedule';
-import { registerForPushNotifications } from '../src/lib/notifications';
+import { ScheduleProvider, useSchedule } from '../src/state/schedule';
+import { clearPushToken, registerForLocalNotifications } from '../src/lib/notifications';
 
 function Gate() {
   const { user, loading } = useAuth();
+  const { refresh } = useSchedule();
   const { colors, scheme } = useTheme();
   const segments = useSegments();
   const router = useRouter();
@@ -31,8 +32,15 @@ function Gate() {
   }, [loading, router, segments, user]);
 
   useEffect(() => {
-    if (user?.notificationsEnabled) void registerForPushNotifications().catch(() => undefined);
-  }, [user?.notificationsEnabled, user?.id]);
+    if (user?.notificationsEnabled) {
+      void registerForLocalNotifications()
+        .then(async (granted) => {
+          await clearPushToken();
+          if (granted) await refresh();
+        })
+        .catch(() => undefined);
+    }
+  }, [user?.notificationsEnabled, user?.id, refresh]);
 
   if (loading) {
     return (

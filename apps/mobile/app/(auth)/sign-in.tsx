@@ -38,7 +38,7 @@ export default function SignIn() {
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
         <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
           <View style={styles.header}>
-            <Heading>UniFlow</Heading>
+            <Heading>LifePilot AI</Heading>
             <Text style={{ color: colors.textMuted, fontSize: 16 }}>
               Talk to your schedule instead of managing it.
             </Text>

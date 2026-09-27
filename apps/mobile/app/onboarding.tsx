@@ -71,7 +71,7 @@ export default function Onboarding() {
       <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
         <Heading>Welcome{user?.name ? `, ${user.name.split(' ')[0]}` : ''}</Heading>
         <Body muted>
-          Add your recurring classes once. Everything else you can just say to UniFlow in chat.
+          Add your recurring classes once. Everything else you can just say to LifePilot in chat.
         </Body>
 
         {status ? <Banner tone="info" message={status} /> : null}

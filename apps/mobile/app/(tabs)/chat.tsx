@@ -11,17 +11,30 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useFocusEffect } from 'expo-router';
 import { useTheme } from '../../src/theme';
 import { useSchedule } from '../../src/state/schedule';
 import { apiRequest, OfflineError } from '../../src/lib/api';
 import { Banner, Heading } from '../../src/components/ui';
-import type { ChatResponse } from '../../src/types';
+import type { ChatResponse, Plan } from '../../src/types';
 
 interface Bubble {
   id: string;
   role: 'USER' | 'ASSISTANT';
   content: string;
   canUndo?: boolean;
+  plan?: Plan;
+}
+
+function proposedPlan(response: ChatResponse): Plan | undefined {
+  const action = response.actions.find((item) => item.tool === 'generate_schedule');
+  const data = action?.data;
+  if (!data || typeof data !== 'object' || !('plan' in data)) return undefined;
+  const plan = data.plan;
+  if (!plan || typeof plan !== 'object' || !('revision' in plan) ||
+    !('date' in plan) || !('sessions' in plan) || !Array.isArray(plan.sessions) ||
+    typeof plan.revision !== 'string' || typeof plan.date !== 'string') return undefined;
+  return plan as Plan;
 }
 
 const SUGGESTIONS = [
@@ -38,7 +51,14 @@ export default function Chat() {
   const [input, setInput] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [provider, setProvider] = useState('Checking AI mode…');
   const scrollRef = useRef<ScrollView>(null);
+
+  useFocusEffect(useCallback(() => {
+    void apiRequest<{ provider: string; personalKeyConfigured: boolean }>('/ai/provider')
+      .then((result) => setProvider(result.provider === 'local' ? 'Mock mode · rule-based assistant' : 'OpenAI connected'))
+      .catch(() => setProvider('Assistant unavailable offline'));
+  }, []));
 
   useEffect(() => {
     void (async () => {
@@ -82,7 +102,7 @@ export default function Chat() {
         setConversationId(reply.conversationId);
         setMessages((current) => [
           ...current,
-          { id: reply.messageId, role: 'ASSISTANT', content: reply.reply, canUndo: reply.canUndo },
+          { id: reply.messageId, role: 'ASSISTANT', content: reply.reply, canUndo: reply.canUndo, plan: proposedPlan(reply) },
         ]);
         if (reply.actions.some((action) => action.ok)) await refresh();
       } catch (caught) {
@@ -109,6 +129,20 @@ export default function Chat() {
     [refresh],
   );
 
+  const approve = async (messageId: string, plan: Plan) => {
+    setBusy(true);
+    try {
+      await apiRequest('/plans/apply', { method: 'POST', body: { date: plan.date, revision: plan.revision } });
+      setMessages((current) => current.map((message) => message.id === messageId
+        ? { ...message, plan: undefined, content: `${message.content} Plan approved and saved.` } : message));
+      await refresh();
+    } catch {
+      setError('The plan changed. Ask me to plan again before approving.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }} edges={['top', 'left', 'right']}>
       <KeyboardAvoidingView
@@ -122,9 +156,16 @@ export default function Chat() {
           onContentSizeChange={() => scrollRef.current?.scrollToEnd({ animated: true })}
           keyboardShouldPersistTaps="handled"
         >
-          <Heading>What&apos;s on your schedule today?</Heading>
+          <Heading>Plan with LifePilot</Heading>
+          <Pressable accessibilityRole="button" disabled={busy} onPress={() => {
+            setConversationId(undefined);
+            setMessages([]);
+            setError(null);
+          }}>
+            <Text style={{ color: colors.primary }}>New conversation</Text>
+          </Pressable>
           <Text style={{ color: colors.textMuted }}>
-            Just say it in your own words — UniFlow handles the calendar part.
+            {provider}
           </Text>
 
           {messages.length === 0
@@ -164,6 +205,27 @@ export default function Chat() {
                   <Text style={{ color: colors.primary, fontWeight: '600' }}>Undo</Text>
                 </Pressable>
               ) : null}
+              {message.plan ? (
+                <View style={[styles.suggestion, { backgroundColor: colors.surface, borderColor: colors.border, gap: 10 }]}>
+                  {message.plan.sessions.map((session) => (
+                    <Text key={`${session.taskId ?? session.goalId}-${session.startTime}`} style={{ color: colors.text }}>
+                      {session.title} · {new Date(session.startTime).toLocaleString()}
+                    </Text>
+                  ))}
+                  {message.plan.unscheduled.map((item) => (
+                    <Text key={item.taskId ?? item.goalId} style={{ color: colors.warning }}>{item.title}: {item.reason}</Text>
+                  ))}
+                  {message.plan.sessions.length > 0 ? (
+                    <Pressable accessibilityRole="button" disabled={busy} onPress={() => void approve(message.id, message.plan!)}>
+                      <Text style={{ color: colors.primary, fontWeight: '700' }}>Approve and save plan</Text>
+                    </Pressable>
+                  ) : null}
+                  <Pressable accessibilityRole="button" onPress={() => setMessages((current) => current.map((item) =>
+                    item.id === message.id ? { ...item, plan: undefined } : item))}>
+                    <Text style={{ color: colors.textMuted }}>Dismiss</Text>
+                  </Pressable>
+                </View>
+              ) : null}
             </View>
           ))}
 
@@ -173,7 +235,7 @@ export default function Chat() {
 
         <View style={[styles.composer, { backgroundColor: colors.surface, borderTopColor: colors.border }]}>
           <TextInput
-            accessibilityLabel="Message UniFlow"
+            accessibilityLabel="Message LifePilot"
             value={input}
             onChangeText={setInput}
             placeholder="Add a meeting tonight at 8…"

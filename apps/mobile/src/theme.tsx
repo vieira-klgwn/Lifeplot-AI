@@ -54,7 +54,7 @@ interface ThemeValue {
 }
 
 const ThemeContext = createContext<ThemeValue | null>(null);
-const STORAGE_KEY = 'uniflow.theme';
+const STORAGE_KEY = 'lifepilot.theme';
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
   const system = useColorScheme();

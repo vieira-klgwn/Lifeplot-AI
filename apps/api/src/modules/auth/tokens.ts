@@ -24,16 +24,16 @@ export function signAccessToken(user: Pick<User, 'id' | 'email'>): string {
   return jwt.sign({ email: user.email }, env.JWT_ACCESS_SECRET, {
     subject: user.id,
     expiresIn: env.ACCESS_TOKEN_TTL as jwt.SignOptions['expiresIn'],
-    issuer: 'uniflow',
-    audience: 'uniflow-app',
+    issuer: 'lifepilot',
+    audience: 'lifepilot-app',
   });
 }
 
 export function verifyAccessToken(token: string): AccessTokenPayload {
   try {
     const decoded = jwt.verify(token, env.JWT_ACCESS_SECRET, {
-      issuer: 'uniflow',
-      audience: 'uniflow-app',
+      issuer: 'lifepilot',
+      audience: 'lifepilot-app',
     });
     if (typeof decoded === 'string' || !decoded.sub) throw new Error('Malformed token');
     return { sub: decoded.sub, email: String(decoded.email ?? '') };

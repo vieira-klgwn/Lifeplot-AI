@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { format, parseISO } from 'date-fns';
@@ -6,31 +6,60 @@ import { useTheme } from '../../src/theme';
 import { useSchedule } from '../../src/state/schedule';
 import { apiRequest } from '../../src/lib/api';
 import { Banner, Button, Card, EmptyState, Field, Heading } from '../../src/components/ui';
+import type { Goal, Task } from '../../src/types';
 
 export default function Tasks() {
   const { colors } = useTheme();
   const { tasks, loading, refresh } = useSchedule();
   const [title, setTitle] = useState('');
   const [deadline, setDeadline] = useState('');
+  const [duration, setDuration] = useState('60');
+  const [goalId, setGoalId] = useState<string | null>(null);
+  const [goals, setGoals] = useState<Goal[]>([]);
+  const [editing, setEditing] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
   const open = tasks.filter((task) => task.status !== 'DONE' && task.status !== 'CANCELLED');
   const done = tasks.filter((task) => task.status === 'DONE');
 
+  useEffect(() => {
+    void apiRequest<{ goals: Goal[] }>('/goals')
+      .then((response) => setGoals(response.goals.filter((goal) => goal.status === 'ACTIVE')))
+      .catch(() => undefined);
+  }, []);
+
+  const edit = (task: Task) => {
+    setEditing(task.id);
+    setTitle(task.title);
+    setDeadline(task.deadline?.slice(0, 10) ?? '');
+    setDuration(String(task.estimatedMinutes ?? 60));
+    setGoalId(task.goalId);
+  };
+
+  const reset = () => {
+    setEditing(null); setTitle(''); setDeadline(''); setDuration('60'); setGoalId(null);
+  };
+
   const add = async () => {
+    const minutes = Number(duration);
+    if (!Number.isInteger(minutes) || minutes < 5 || minutes > 1440) {
+      setError('Estimated duration must be between 5 and 1440 minutes.');
+      return;
+    }
     setBusy(true);
     setError(null);
     try {
-      await apiRequest('/tasks', {
-        method: 'POST',
+      await apiRequest(editing ? `/tasks/${editing}` : '/tasks', {
+        method: editing ? 'PATCH' : 'POST',
         body: {
           title: title.trim(),
           deadlineDate: /^\d{4}-\d{2}-\d{2}$/.test(deadline) ? deadline : null,
+          estimatedMinutes: minutes,
+          goalId,
         },
       });
-      setTitle('');
-      setDeadline('');
+      reset();
       await refresh();
     } catch {
       setError('Could not save that task.');
@@ -66,7 +95,20 @@ export default function Tasks() {
             placeholder="2026-09-24"
             autoCapitalize="none"
           />
-          <Button label="Add task" onPress={add} loading={busy} disabled={!title.trim()} />
+          <Field label="Estimated minutes" value={duration} onChangeText={setDuration} keyboardType="number-pad" />
+          {goals.length ? (
+            <View style={styles.list}>
+              <Text style={{ color: colors.textMuted }}>Related goal</Text>
+              {[{ id: null, title: 'No goal' }, ...goals].map((goal) => (
+                <Pressable key={goal.id ?? 'none'} accessibilityRole="radio" accessibilityState={{ selected: goalId === goal.id }}
+                  onPress={() => setGoalId(goal.id)}>
+                  <Text style={{ color: goalId === goal.id ? colors.primary : colors.text }}>{goal.title}</Text>
+                </Pressable>
+              ))}
+            </View>
+          ) : null}
+          <Button label={editing ? 'Save task' : 'Add task'} onPress={add} loading={busy} disabled={!title.trim()} />
+          {editing ? <Button label="Cancel editing" variant="secondary" onPress={reset} /> : null}
         </Card>
 
         {open.length === 0 ? (
@@ -74,8 +116,8 @@ export default function Tasks() {
         ) : (
           <View style={styles.list}>
             {open.map((task) => (
+              <View key={task.id}>
               <Pressable
-                key={task.id}
                 accessibilityRole="checkbox"
                 accessibilityState={{ checked: false }}
                 accessibilityLabel={task.title}
@@ -92,6 +134,10 @@ export default function Tasks() {
                   ) : null}
                 </View>
               </Pressable>
+              <Pressable accessibilityRole="button" onPress={() => edit(task)}>
+                <Text style={{ color: colors.primary }}>Edit</Text>
+              </Pressable>
+              </View>
             ))}
           </View>
         )}

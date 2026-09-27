@@ -12,6 +12,8 @@ import { eventRouter } from './modules/events/routes.js';
 import { taskRouter } from './modules/tasks/routes.js';
 import { reminderRouter } from './modules/reminders/routes.js';
 import { aiRouter } from './modules/ai/routes.js';
+import { goalRouter } from './modules/goals/routes.js';
+import { planRouter } from './modules/plans/routes.js';
 
 export function createApp() {
   const app = express();
@@ -51,6 +53,8 @@ export function createApp() {
   app.use('/users', userRouter);
   app.use('/events', eventRouter);
   app.use('/tasks', taskRouter);
+  app.use('/goals', goalRouter);
+  app.use('/plans', planRouter);
   app.use('/reminders', reminderRouter);
   app.use('/ai', aiRouter);
 
