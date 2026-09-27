@@ -348,6 +348,7 @@ export interface CreateTaskInput {
   category?: EventCategory;
   reminderMinutes?: number | null;
   goalId?: string | null;
+  priority?: number;
 }
 
 export async function createTask(user: User, input: CreateTaskInput): Promise<Task> {
@@ -363,6 +364,7 @@ export async function createTask(user: User, input: CreateTaskInput): Promise<Ta
       estimatedMinutes: input.estimatedMinutes ?? null,
       category: input.category ?? 'ASSIGNMENT',
       goalId: input.goalId ?? null,
+      priority: input.priority ?? 2,
     },
   });
   await syncRemindersForTask(user, task, input.reminderMinutes);
@@ -401,6 +403,7 @@ export async function updateTask(
       category: input.category ?? undefined,
       status: input.status ?? undefined,
       goalId: input.goalId === undefined ? undefined : input.goalId,
+      priority: input.priority ?? undefined,
     },
   });
   await syncRemindersForTask(user, task, input.reminderMinutes);

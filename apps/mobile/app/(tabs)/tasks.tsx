@@ -5,7 +5,7 @@ import { format, parseISO } from 'date-fns';
 import { useTheme } from '../../src/theme';
 import { useSchedule } from '../../src/state/schedule';
 import { apiRequest } from '../../src/lib/api';
-import { Banner, Button, Card, EmptyState, Field, Heading } from '../../src/components/ui';
+import { Banner, Button, Card, EmptyState, Field, Heading, Segmented } from '../../src/components/ui';
 import type { Goal, Task } from '../../src/types';
 
 export default function Tasks() {
@@ -14,6 +14,7 @@ export default function Tasks() {
   const [title, setTitle] = useState('');
   const [deadline, setDeadline] = useState('');
   const [duration, setDuration] = useState('60');
+  const [priority, setPriority] = useState('2');
   const [goalId, setGoalId] = useState<string | null>(null);
   const [goals, setGoals] = useState<Goal[]>([]);
   const [editing, setEditing] = useState<string | null>(null);
@@ -34,11 +35,12 @@ export default function Tasks() {
     setTitle(task.title);
     setDeadline(task.deadline?.slice(0, 10) ?? '');
     setDuration(String(task.estimatedMinutes ?? 60));
+    setPriority(String(task.priority));
     setGoalId(task.goalId);
   };
 
   const reset = () => {
-    setEditing(null); setTitle(''); setDeadline(''); setDuration('60'); setGoalId(null);
+    setEditing(null); setTitle(''); setDeadline(''); setDuration('60'); setPriority('2'); setGoalId(null);
   };
 
   const add = async () => {
@@ -56,6 +58,7 @@ export default function Tasks() {
           title: title.trim(),
           deadlineDate: /^\d{4}-\d{2}-\d{2}$/.test(deadline) ? deadline : null,
           estimatedMinutes: minutes,
+          priority: Number(priority),
           goalId,
         },
       });
@@ -96,6 +99,9 @@ export default function Tasks() {
             autoCapitalize="none"
           />
           <Field label="Estimated minutes" value={duration} onChangeText={setDuration} keyboardType="number-pad" />
+          <Text style={{ color: colors.text }}>Priority</Text>
+          <Segmented value={priority} onChange={setPriority}
+            options={[{ value: '1', label: 'Low' }, { value: '2', label: 'Medium' }, { value: '3', label: 'High' }]} />
           {goals.length ? (
             <View style={styles.list}>
               <Text style={{ color: colors.textMuted }}>Related goal</Text>
