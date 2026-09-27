@@ -1,13 +1,16 @@
-import { useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { addMonths, addWeeks, format, isSameDay, isSameMonth } from 'date-fns';
+import { addDays, addMonths, addWeeks, format, isSameDay, isSameMonth } from 'date-fns';
+import { useFocusEffect } from 'expo-router';
 import { useTheme } from '../../src/theme';
 import { useAuth } from '../../src/state/auth';
 import { useSchedule } from '../../src/state/schedule';
 import { EmptyState, Heading, Segmented } from '../../src/components/ui';
 import { EventCard } from '../../src/components/EventCard';
 import { dayLabel, monthGrid, weekDays } from '../../src/lib/dates';
+import { apiRequest } from '../../src/lib/api';
+import type { ScheduleEvent } from '../../src/types';
 
 type Mode = 'week' | 'month';
 
@@ -18,23 +21,53 @@ export default function Calendar() {
   const [mode, setMode] = useState<Mode>('week');
   const [anchor, setAnchor] = useState(new Date());
   const [selected, setSelected] = useState(new Date());
+  const [visible, setVisible] = useState<{ range: string; events: ScheduleEvent[] } | null>(null);
+  const [rangeError, setRangeError] = useState<string | null>(null);
 
   const weekStartsOn = user?.weekStartsOn === 0 ? 0 : 1;
   const days = useMemo(
     () => (mode === 'week' ? weekDays(anchor, weekStartsOn) : monthGrid(anchor, weekStartsOn)),
     [anchor, mode, weekStartsOn],
   );
-  const selectedEvents = eventsOn(selected);
+  const from = format(days[0] ?? anchor, 'yyyy-MM-dd');
+  const to = format(days[days.length - 1] ?? anchor, 'yyyy-MM-dd');
+  const range = `${user?.id ?? ''}:${from}:${to}`;
+  const loadVisible = useCallback(async () => {
+    try {
+      const result = await apiRequest<{ events: ScheduleEvent[] }>('/events', { query: { from, to } });
+      setVisible({ range, events: result.events });
+      setRangeError(null);
+    } catch {
+      setRangeError(range);
+    }
+  }, [from, to, range]);
+
+  useFocusEffect(useCallback(() => {
+    void loadVisible();
+  }, [loadVisible]));
+
+  const cachedRange = from >= format(addDays(new Date(), -21), 'yyyy-MM-dd') &&
+    to <= format(addDays(new Date(), 45), 'yyyy-MM-dd');
+  const showCache = rangeError === range && cachedRange;
+  const visibleEvents = visible?.range === range ? visible.events : [];
+  const selectedEvents = showCache ? eventsOn(selected) :
+    visibleEvents.filter((event) => isSameDay(new Date(event.startTime), selected));
+  const unavailable = visible?.range !== range && rangeError !== range;
   const weekStart = days[0] ?? anchor;
 
-  const shift = (direction: -1 | 1) =>
-    setAnchor((current) => (mode === 'week' ? addWeeks(current, direction) : addMonths(current, direction)));
+  const shift = (direction: -1 | 1) => {
+    const next = mode === 'week' ? addWeeks(anchor, direction) : addMonths(anchor, direction);
+    setAnchor(next);
+    setSelected(next);
+  };
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }} edges={['top', 'left', 'right']}>
       <ScrollView
         contentContainerStyle={styles.container}
-        refreshControl={<RefreshControl refreshing={loading} onRefresh={refresh} tintColor={colors.primary} />}
+        refreshControl={<RefreshControl refreshing={loading} onRefresh={() => {
+          void Promise.all([refresh(), loadVisible()]);
+        }} tintColor={colors.primary} />}
       >
         <Heading>
           {mode === 'week' ? format(weekStart, "'Week of' d MMM") : format(anchor, 'MMMM yyyy')}
@@ -81,14 +114,15 @@ export default function Calendar() {
 
         <View style={styles.grid}>
           {days.map((day) => {
-            const dayEvents = eventsOn(day);
+            const dayEvents = showCache ? eventsOn(day) :
+              visibleEvents.filter((event) => isSameDay(new Date(event.startTime), day));
             const active = isSameDay(day, selected);
             const dim = mode === 'month' && !isSameMonth(day, anchor);
             return (
               <Pressable
                 key={day.toISOString()}
                 accessibilityRole="button"
-                accessibilityLabel={`${dayLabel(day)}, ${dayEvents.length} events`}
+                accessibilityLabel={`${dayLabel(day)}, ${unavailable ? 'loading' : dayEvents.length} events`}
                 accessibilityState={{ selected: active }}
                 onPress={() => {
                   setSelected(day);
@@ -127,8 +161,13 @@ export default function Calendar() {
         </View>
 
         <Text style={[styles.selectedLabel, { color: colors.text }]}>{dayLabel(selected)}</Text>
-        {selectedEvents.length === 0 ? (
-          <EmptyState title="Free day" hint="Nothing scheduled — a good slot for deep work." />
+        {unavailable ? (
+          <Text style={{ color: colors.textMuted }}>Loading calendar…</Text>
+        ) : rangeError === range && !showCache ? (
+          <EmptyState title="Calendar unavailable" hint="Connect to load this week or month. Pull down to retry." />
+        ) : selectedEvents.length === 0 ? (
+          <EmptyState title={showCache ? 'No saved events for this day' : 'Free day'}
+            hint={showCache ? 'Offline — this schedule may be incomplete.' : 'Nothing scheduled — a good slot for deep work.'} />
         ) : (
           <View style={styles.list}>
             {selectedEvents.map((event) => (
