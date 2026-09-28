@@ -50,15 +50,17 @@ export class OpenAIProvider implements AIProvider {
                 : { role: message.role, content: message.content },
             ),
           ],
-          tools: request.tools.map((tool) => ({
-            type: 'function',
-            function: {
-              name: tool.name,
-              description: tool.description,
-              parameters: tool.parameters,
-            },
-          })),
-          tool_choice: 'auto',
+          ...(request.tools.length ? {
+            tools: request.tools.map((tool) => ({
+              type: 'function',
+              function: {
+                name: tool.name,
+                description: tool.description,
+                parameters: tool.parameters,
+              },
+            })),
+            tool_choice: 'auto',
+          } : {}),
         }),
       });
 

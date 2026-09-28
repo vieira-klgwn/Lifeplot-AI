@@ -12,6 +12,7 @@ import { track } from '../../services/analytics.js';
 
 export const userRouter = Router();
 userRouter.use(requireAuth);
+const TIME = z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/);
 
 userRouter.get(
   '/me',
@@ -30,6 +31,12 @@ userRouter.patch(
         timezone: z.string().max(64).optional(),
         weekStartsOn: z.number().int().min(0).max(1).optional(),
         defaultReminderMinutes: z.number().int().min(0).max(60 * 24 * 14).optional(),
+        wakeTime: TIME.optional(),
+        bedTime: TIME.optional(),
+        workStartTime: TIME.optional(),
+        workEndTime: TIME.optional(),
+        breakMinutes: z.number().int().min(0).max(60).optional(),
+        protectEvenings: z.boolean().optional(),
         categoryReminderMinutes: z.record(z.number().int().min(0).max(60 * 24 * 14)).optional(),
         notificationsEnabled: z.boolean().optional(),
         analyticsEnabled: z.boolean().optional(),
@@ -42,6 +49,13 @@ userRouter.patch(
     }
 
     const user = currentUser(req);
+    const wakeTime = body.wakeTime ?? user.wakeTime;
+    const bedTime = body.bedTime ?? user.bedTime;
+    const workStartTime = body.workStartTime ?? user.workStartTime;
+    const workEndTime = body.workEndTime ?? user.workEndTime;
+    if (wakeTime >= bedTime || workStartTime < wakeTime || workEndTime > bedTime || workStartTime >= workEndTime) {
+      throw badRequest('Working hours must fall between wake-up and bedtime');
+    }
     const updated = await prisma.user.update({
       where: { id: user.id },
       data: {
@@ -50,6 +64,12 @@ userRouter.patch(
         timezone: body.timezone ?? undefined,
         weekStartsOn: body.weekStartsOn ?? undefined,
         defaultReminderMinutes: body.defaultReminderMinutes ?? undefined,
+        wakeTime: body.wakeTime,
+        bedTime: body.bedTime,
+        workStartTime: body.workStartTime,
+        workEndTime: body.workEndTime,
+        breakMinutes: body.breakMinutes,
+        protectEvenings: body.protectEvenings,
         categoryReminderMinutes: body.categoryReminderMinutes ?? undefined,
         notificationsEnabled: body.notificationsEnabled ?? undefined,
         analyticsEnabled: body.analyticsEnabled ?? undefined,
@@ -93,6 +113,7 @@ userRouter.delete(
       prisma.event.deleteMany({ where: { userId } }),
       prisma.recurrenceRule.deleteMany({ where: { userId } }),
       prisma.task.deleteMany({ where: { userId } }),
+      prisma.goal.deleteMany({ where: { userId } }),
       prisma.conversation.deleteMany({ where: { userId } }),
     ]);
     res.status(204).send();

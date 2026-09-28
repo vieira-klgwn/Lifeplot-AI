@@ -1,8 +1,8 @@
 {
-  "name": "uniflow",
+  "name": "lifepilot-ai",
   "private": true,
   "version": "0.1.0",
-  "description": "UniFlow - AI-powered schedule assistant for university students",
+  "description": "LifePilot AI - student planning assistant",
   "scripts": {
     "install:all": "npm --prefix apps/api install && npm --prefix apps/mobile install",
     "api": "npm --prefix apps/api run dev",
@@ -12,9 +12,10 @@
     "lint": "npm --prefix apps/api run lint && npm --prefix apps/mobile run lint",
     "typecheck": "npm --prefix apps/api run typecheck && npm --prefix apps/mobile run typecheck",
     "db:up": "docker compose up -d",
-    "db:down": "docker compose down"
+    "db:down": "docker compose down",
+    "build:web": "npm --prefix apps/mobile run export:web"
   },
   "engines": {
-    "node": ">=20"
+    "node": ">=22.13"
   }
 }

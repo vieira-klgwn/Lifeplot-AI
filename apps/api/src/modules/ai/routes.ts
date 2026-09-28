@@ -6,6 +6,9 @@ import { asyncHandler } from '../../middleware/asyncHandler.js';
 import { currentUser, requireAuth } from '../../middleware/requireAuth.js';
 import { chat, latestConversation, listMessages, undo } from './assistant.js';
 import { getAIProvider } from './index.js';
+import { OpenAIProvider } from './provider/openai.js';
+import { encryptKey, providerForUser } from './userProvider.js';
+import { prisma } from '../../lib/prisma.js';
 
 /// Model calls cost money and are the most abusable endpoint, so they get a
 /// tighter per-user budget than the rest of the API.
@@ -23,9 +26,37 @@ const aiLimiter = rateLimit({
 export const aiRouter = Router();
 aiRouter.use(requireAuth);
 
-aiRouter.get('/provider', (_req, res) => {
-  res.json({ provider: getAIProvider().name });
+aiRouter.get('/provider', (req, res) => {
+  const user = currentUser(req);
+  res.json({ provider: providerForUser(user).name, personalKeyConfigured: Boolean(user.aiKeyCiphertext) });
 });
+
+aiRouter.put('/provider', aiLimiter, asyncHandler(async (req, res) => {
+  const { apiKey } = z.object({ apiKey: z.string().trim().min(10).max(256) }).parse(req.body);
+  const user = currentUser(req);
+  await prisma.user.update({ where: { id: user.id }, data: { aiKeyCiphertext: encryptKey(apiKey, user.id) } });
+  res.json({ provider: 'openai', personalKeyConfigured: true });
+}));
+
+aiRouter.delete('/provider', aiLimiter, asyncHandler(async (req, res) => {
+  await prisma.user.update({ where: { id: currentUser(req).id }, data: { aiKeyCiphertext: null } });
+  res.json({ provider: getAIProvider().name, personalKeyConfigured: false });
+}));
+
+aiRouter.post('/provider/test', aiLimiter, asyncHandler(async (req, res) => {
+  const { apiKey } = z.object({ apiKey: z.string().trim().min(10).max(256).optional() }).parse(req.body);
+  const provider = apiKey ? new OpenAIProvider(apiKey) : providerForUser(currentUser(req));
+  if (provider.name === 'local') {
+    res.json({ connected: false, provider: 'local', message: 'Mock mode is ready. Add a key to connect to OpenAI.' });
+    return;
+  }
+  await provider.complete({
+    context: 'Reply with the word OK.',
+    messages: [{ role: 'user', content: 'Connection test' }],
+    tools: [],
+  });
+  res.json({ connected: true, provider: provider.name });
+}));
 
 aiRouter.post(
   '/chat',

@@ -15,6 +15,7 @@ import {
   defaultReminderMinutes,
 } from '../../services/schedule.js';
 import { removeReminder, syncRemindersForEvent } from '../../services/reminders.js';
+import { planningDate, previewPlan } from '../../services/planner.js';
 import type { ToolDefinition } from './provider/types.js';
 
 const DATE = z
@@ -97,6 +98,7 @@ const schemas = {
     estimatedMinutes: z.number().int().min(5).max(24 * 60).optional(),
     description: z.string().max(500).optional(),
   }),
+  generate_schedule: z.object({ date: DATE.optional() }),
 } as const;
 
 export type ToolName = keyof typeof schemas;
@@ -181,6 +183,11 @@ export const toolDefinitions: ToolDefinition[] = [
     description:
       'Store something that must get done, optionally with a deadline (assignments, essays, applications).',
     parameters: jsonSchema(schemas.create_task),
+  },
+  {
+    name: 'generate_schedule',
+    description: 'Preview a deterministic, conflict-free study plan for pending tasks. The student must approve it before any sessions are saved.',
+    parameters: jsonSchema(schemas.generate_schedule),
   },
 ];
 
@@ -436,6 +443,19 @@ export async function executeTool(
           ? `Saved "${task.title}", due ${formatInZone(deadline, tz, "EEE d MMM 'at' HH:mm")}.`
           : `Saved "${task.title}" to your list.`,
         data: { taskId: task.id },
+      };
+    }
+
+    case 'generate_schedule': {
+      const args = parsed.data as z.infer<(typeof schemas)['generate_schedule']>;
+      const plan = await previewPlan(user, args.date ?? planningDate(user));
+      return {
+        ok: true,
+        needsConfirmation: plan.sessions.length > 0,
+        summary: plan.sessions.length
+          ? `I found time for ${plan.sessions.length} study session(s). Review the proposed plan before saving it.`
+          : 'I could not find any pending tasks with estimated durations that fit this week.',
+        data: { plan },
       };
     }
 

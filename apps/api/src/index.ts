@@ -6,7 +6,7 @@ import { startReminderWorker } from './services/reminderWorker.js';
 
 const app = createApp();
 const server = app.listen(env.PORT, () => {
-  logger.info({ port: env.PORT, env: env.NODE_ENV }, 'UniFlow API listening');
+  logger.info({ port: env.PORT, env: env.NODE_ENV }, 'LifePilot API listening');
 });
 
 const worker = env.REMINDER_WORKER_ENABLED ? startReminderWorker() : null;

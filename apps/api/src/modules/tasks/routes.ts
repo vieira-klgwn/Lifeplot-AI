@@ -30,6 +30,8 @@ taskRouter.post(
         deadlineDate: DATE.nullable().optional(),
         deadlineTime: TIME.optional(),
         estimatedMinutes: z.number().int().min(5).max(24 * 60).nullable().optional(),
+        goalId: z.string().uuid().nullable().optional(),
+        priority: z.number().int().min(1).max(3).optional(),
         reminderMinutes: z.number().int().min(0).max(60 * 24 * 14).nullable().optional(),
       })
       .parse(req.body);
@@ -44,6 +46,8 @@ taskRouter.post(
       description: body.description ?? null,
       deadline,
       estimatedMinutes: body.estimatedMinutes ?? null,
+      goalId: body.goalId ?? null,
+      priority: body.priority,
       reminderMinutes: body.reminderMinutes ?? (deadline ? user.defaultReminderMinutes : null),
     });
 
@@ -71,6 +75,8 @@ taskRouter.patch(
         deadlineDate: DATE.nullable().optional(),
         deadlineTime: TIME.optional(),
         estimatedMinutes: z.number().int().min(5).max(24 * 60).nullable().optional(),
+        goalId: z.string().uuid().nullable().optional(),
+        priority: z.number().int().min(1).max(3).optional(),
         status: z.enum(['PENDING', 'SCHEDULED', 'DONE', 'CANCELLED']).optional(),
         reminderMinutes: z.number().int().min(0).max(60 * 24 * 14).nullable().optional(),
       })
@@ -89,6 +95,8 @@ taskRouter.patch(
       description: body.description,
       deadline,
       estimatedMinutes: body.estimatedMinutes,
+      goalId: body.goalId,
+      priority: body.priority,
       status: body.status,
       reminderMinutes: body.reminderMinutes,
     });

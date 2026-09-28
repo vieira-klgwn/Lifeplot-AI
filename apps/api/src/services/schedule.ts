@@ -347,9 +347,14 @@ export interface CreateTaskInput {
   estimatedMinutes?: number | null;
   category?: EventCategory;
   reminderMinutes?: number | null;
+  goalId?: string | null;
+  priority?: number;
 }
 
 export async function createTask(user: User, input: CreateTaskInput): Promise<Task> {
+  if (input.goalId && !await prisma.goal.findFirst({ where: { id: input.goalId, userId: user.id } })) {
+    throw notFound('Goal not found');
+  }
   const task = await prisma.task.create({
     data: {
       userId: user.id,
@@ -358,6 +363,8 @@ export async function createTask(user: User, input: CreateTaskInput): Promise<Ta
       deadline: input.deadline ?? null,
       estimatedMinutes: input.estimatedMinutes ?? null,
       category: input.category ?? 'ASSIGNMENT',
+      goalId: input.goalId ?? null,
+      priority: input.priority ?? 2,
     },
   });
   await syncRemindersForTask(user, task, input.reminderMinutes);
@@ -383,6 +390,9 @@ export async function updateTask(
   input: Partial<CreateTaskInput> & { status?: Task['status'] },
 ): Promise<Task> {
   await getTask(user.id, taskId);
+  if (input.goalId && !await prisma.goal.findFirst({ where: { id: input.goalId, userId: user.id } })) {
+    throw notFound('Goal not found');
+  }
   const task = await prisma.task.update({
     where: { id: taskId },
     data: {
@@ -392,6 +402,8 @@ export async function updateTask(
       estimatedMinutes: input.estimatedMinutes === undefined ? undefined : input.estimatedMinutes,
       category: input.category ?? undefined,
       status: input.status ?? undefined,
+      goalId: input.goalId === undefined ? undefined : input.goalId,
+      priority: input.priority ?? undefined,
     },
   });
   await syncRemindersForTask(user, task, input.reminderMinutes);

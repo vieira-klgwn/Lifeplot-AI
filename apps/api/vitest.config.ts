@@ -7,7 +7,7 @@ export default defineConfig({
       NODE_ENV: 'test',
       DATABASE_URL:
         process.env.TEST_DATABASE_URL ??
-        'postgresql://postgres:postgres@localhost:5432/uniflow_test?schema=public',
+        'postgresql://postgres:postgres@localhost:5433/lifepilot_test?schema=public',
       JWT_ACCESS_SECRET: 'test-access-secret-0123456789abcdef',
       JWT_REFRESH_SECRET: 'test-refresh-secret-0123456789abcdef',
       AI_PROVIDER: 'local',

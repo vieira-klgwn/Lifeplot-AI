@@ -54,6 +54,14 @@ export class LocalProvider implements AIProvider {
       return { content: 'What would you like me to add to your schedule?', toolCalls: [] };
     }
 
+    if (/\b(plan|organize|reorganize)\b.*\b(day|week|schedule)\b/.test(text)) {
+      return { content: '', toolCalls: [call('generate_schedule', { date: resolveDate(text, today) ?? today })] };
+    }
+
+    if (/\b(keep|protect|leave)\b.*\b(tonight|evening)\b.*\bfree\b|\b(tonight|evening)\b.*\bfree\b/.test(text)) {
+      return { content: 'Should I protect every evening after that time, or just tonight? You can set recurring protected hours in Settings.', toolCalls: [] };
+    }
+
     if (isQuery(text)) {
       const date = resolveDate(text, today) ?? today;
       return { content: '', toolCalls: [call('get_schedule', { date })] };
@@ -103,7 +111,15 @@ export class LocalProvider implements AIProvider {
       }
       return {
         content: '',
-        toolCalls: [call('create_task', { title: title || 'Deadline', deadlineDate: date, deadlineTime: time })],
+        toolCalls: [
+          call('create_task', {
+            title: (title || 'Deadline').replace(/\s+Due$/i, ''),
+            deadlineDate: date, deadlineTime: time,
+            estimatedMinutes: extractDurationMinutes(text) ?? undefined,
+          }),
+          ...(/\bschedule\b/.test(text) && extractDurationMinutes(text)
+            ? [call('generate_schedule', { date: today })] : []),
+        ],
       };
     }
 
